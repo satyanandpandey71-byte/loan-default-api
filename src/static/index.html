@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loan Default Risk Scorer</title>
+<style>
+  :root {
+    --bg: #f4f6fb; --card: #ffffff; --ink: #1c2333; --muted: #667085; --line: #e3e7ef;
+    --brand: #3b5bdb; --low: #2f9e44; --medium: #f08c00; --high: #e03131;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1420; --card: #181f2e; --ink: #e8ecf5; --muted: #94a0b8; --line: #2a3347; --brand: #748ffc; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 28px 20px 8px; max-width: 1040px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  header p { margin: 0; color: var(--muted); }
+  main { max-width: 1040px; margin: 0 auto; padding: 16px 20px 40px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .card h2 { margin: 0 0 14px; font-size: 16px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 16px; }
+  legend { font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0; margin-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 13px; font-weight: 500; }
+  label small { color: var(--muted); font-weight: 400; }
+  input, select { width: 100%; margin-top: 4px; padding: 9px 10px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  input:focus, select:focus { outline: 2px solid var(--brand); outline-offset: 0; border-color: transparent; }
+  .err { display: none; color: var(--high); font-size: 12px; margin-top: 3px; }
+  label.invalid input, label.invalid select { border-color: var(--high); }
+  label.invalid .err { display: block; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  button { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .presets span { color: var(--muted); font-size: 13px; }
+  .presets button { padding: 5px 10px; font-size: 13px; font-weight: 500; }
+  #result { position: sticky; top: 16px; }
+  .placeholder { color: var(--muted); }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; color: #fff; font-weight: 700; text-transform: uppercase; font-size: 13px; letter-spacing: .05em; }
+  .badge.low { background: var(--low); } .badge.medium { background: var(--medium); } .badge.high { background: var(--high); }
+  .prob { font-size: 46px; font-weight: 800; line-height: 1.1; margin: 10px 0 4px; }
+  .meter { height: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin: 10px 0 6px; }
+  .meter > div { height: 100%; width: 0; border-radius: 999px; transition: width .5s ease; }
+  .meter-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .banner { background: #fff4e6; color: #8a4b00; border: 1px solid #ffd8a8; padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  @media (prefers-color-scheme: dark) { .banner { background: #3a2a10; color: #ffd8a8; border-color: #5c4318; } }
+  .status { font-size: 12px; color: var(--muted); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 5px; }
+  .dot.ok { background: var(--low); } .dot.bad { background: var(--high); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Loan Default Risk Scorer</h1>
+  <p>Enter an applicant's details to get a default probability and risk category. <span class="status"><span class="dot" id="dot"></span><span id="status">checking API…</span></span></p>
+</header>
+
+<main>
+  <form id="form" class="card" novalidate>
+    <div class="presets">
+      <span>Try an example:</span>
+      <button type="button" data-preset="low">Low-risk</button>
+      <button type="button" data-preset="typical">Typical</button>
+      <button type="button" data-preset="high">High-risk</button>
+      <button type="button" data-preset="clear">Clear</button>
+    </div>
+
+    <fieldset>
+      <legend>Applicant</legend>
+      <div class="grid">
+        <label>Age <input name="age" type="number" step="1" min="18" max="100" required><span class="err"></span></label>
+        <label>Annual income <small>(₹ / $, any currency unit)</small> <input name="annual_income" type="number" min="1" required><span class="err"></span></label>
+        <label>Home ownership
+          <select name="home_ownership" required>
+            <option value="">Select…</option><option>RENT</option><option>MORTGAGE</option><option>OWN</option><option>OTHER</option>
+          </select><span class="err"></span></label>
+        <label>Employment years <small>(optional)</small> <input name="employment_years" type="number" step="0.1" min="0"><span class="err"></span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Loan</legend>
+      <div class="grid">
+        <label>Loan amount <input name="loan_amount" type="number" min="500" max="100000" required><span class="err"></span></label>
+        <label>Term <small>(months, 12–60)</small> <input name="loan_term_months" type="number" step="1" min="12" max="60" required><span class="err"></span></label>
+        <label>Purpose
+          <select name="loan_purpose" required>
+            <option value="">Select…</option>
+            <option value="debt_consolidation">Debt consolidation</option><option value="credit_card">Credit card</option>
+            <option value="home_improvement">Home improvement</option><option value="car">Car</option>
+            <option value="small_business">Small business</option><option value="medical">Medical</option><option value="other">Other</option>
+          </select><span class="err"></span></label>
+        <label>Interest rate <small>(%)</small> <input name="interest_rate" type="number" step="0.01" min="0" max="40" required><span class="err"></span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Credit history <small style="text-transform:none;letter-spacing:0">(all optional — blank values are estimated by the model)</small></legend>
+      <div class="grid">
+        <label>Credit score <small>(300–850)</small> <input name="credit_score" type="number" step="1" min="300" max="850"><span class="err"></span></label>
+        <label>Credit history <small>(years)</small> <input name="credit_history_years" type="number" step="0.1" min="0"><span class="err"></span></label>
+        <label>Open credit lines <input name="num_credit_lines" type="number" step="1" min="0"><span class="err"></span></label>
+        <label>Delinquencies, last 2 yrs <input name="delinquencies_2y" type="number" step="1" min="0"><span class="err"></span></label>
+        <label>Credit utilisation <small>(%)</small> <input name="credit_utilization" type="number" step="0.1" min="0"><span class="err"></span></label>
+        <label>Debt-to-income <small>(%)</small> <input name="debt_to_income" type="number" step="0.1" min="0"><span class="err"></span></label>
+      </div>
+    </fieldset>
+
+    <div class="row"><button class="primary" id="submit" type="submit">Calculate risk</button></div>
+  </form>
+
+  <aside id="result" class="card" aria-live="polite">
+    <h2>Result</h2>
+    <p class="placeholder" id="placeholder">Fill in the form and press <b>Calculate risk</b>.</p>
+    <div id="out" hidden>
+      <span class="badge" id="badge"></span>
+      <div class="prob" id="prob"></div>
+      <div class="muted">estimated probability of default</div>
+      <div class="meter"><div id="bar"></div></div>
+      <div class="meter-label"><span>0%</span><span>50%</span><span>100%</span></div>
+      <div class="note" id="note"></div>
+    </div>
+    <div id="problem" class="banner" hidden></div>
+  </aside>
+</main>
+
+<script>
+const PRESETS = {
+  low:     {age:45, annual_income:140000, home_ownership:"OWN", employment_years:15, loan_amount:6000, loan_term_months:36, loan_purpose:"home_improvement", interest_rate:6.5, credit_score:800, credit_history_years:20, num_credit_lines:10, delinquencies_2y:0, credit_utilization:8, debt_to_income:6},
+  typical: {age:38, annual_income:62000, home_ownership:"MORTGAGE", employment_years:7.5, loan_amount:12000, loan_term_months:36, loan_purpose:"debt_consolidation", interest_rate:11.5, credit_score:690, credit_history_years:12, num_credit_lines:8, delinquencies_2y:0, credit_utilization:35, debt_to_income:17.5},
+  high:    {age:29, annual_income:24000, home_ownership:"RENT", employment_years:2, loan_amount:22000, loan_term_months:60, loan_purpose:"small_business", interest_rate:24, credit_score:520, credit_history_years:5, num_credit_lines:4, delinquencies_2y:4, credit_utilization:95, debt_to_income:42},
+};
+const NOTES = {
+  low: "Low risk: this applicant looks well within normal lending appetite.",
+  medium: "Medium risk: consider manual review or adjusted terms.",
+  high: "High risk: above the model's decision threshold; a lender would typically decline or require extra security.",
+};
+const form = document.getElementById("form");
+
+function clearErrors() {
+  form.querySelectorAll("label.invalid").forEach(l => l.classList.remove("invalid"));
+  form.querySelectorAll(".err").forEach(e => e.textContent = "");
+  document.getElementById("problem").hidden = true;
+}
+function showFieldError(name, msg) {
+  const el = form.elements[name];
+  if (!el) return false;
+  const label = el.closest("label");
+  label.classList.add("invalid");
+  label.querySelector(".err").textContent = msg;
+  return true;
+}
+function showProblem(msg) {
+  const p = document.getElementById("problem");
+  p.textContent = msg; p.hidden = false;
+  document.getElementById("out").hidden = true;
+  document.getElementById("placeholder").hidden = true;
+}
+function fillForm(values) {
+  clearErrors();
+  for (const el of form.elements) {
+    if (el.name) el.value = values && values[el.name] !== undefined ? values[el.name] : "";
+  }
+}
+function buildPayload() {
+  const payload = {};
+  for (const el of form.elements) {
+    if (!el.name || el.value.trim() === "") continue;
+    payload[el.name] = el.type === "number" ? Number(el.value) : el.value;
+  }
+  return payload;
+}
+
+document.querySelectorAll("[data-preset]").forEach(btn => btn.addEventListener("click", () => {
+  const k = btn.dataset.preset;
+  fillForm(k === "clear" ? null : PRESETS[k]);
+  if (k === "clear") { document.getElementById("out").hidden = true; document.getElementById("placeholder").hidden = false; }
+}));
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  clearErrors();
+  const btn = document.getElementById("submit");
+  btn.disabled = true; btn.textContent = "Calculating…";
+  try {
+    const res = await fetch("/predict", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(buildPayload())});
+    const data = await res.json();
+    if (res.status === 422) {
+      const unplaced = [];
+      for (const d of data.details) if (!showFieldError(d.field, d.message)) unplaced.push(`${d.field}: ${d.message}`);
+      showProblem(unplaced.length ? unplaced.join("; ") : "Please fix the highlighted fields.");
+      return;
+    }
+    if (!res.ok) { showProblem(data.message || "Something went wrong."); return; }
+
+    const pct = data.default_probability * 100;
+    const colour = {low: "var(--low)", medium: "var(--medium)", high: "var(--high)"}[data.risk_category];
+    document.getElementById("placeholder").hidden = true;
+    document.getElementById("out").hidden = false;
+    const badge = document.getElementById("badge");
+    badge.textContent = data.risk_category + " risk"; badge.className = "badge " + data.risk_category;
+    document.getElementById("prob").textContent = pct.toFixed(1) + "%";
+    const bar = document.getElementById("bar");
+    bar.style.background = colour; bar.style.width = Math.max(pct, 1) + "%";
+    document.getElementById("note").textContent = NOTES[data.risk_category] + "  (model v" + data.model_version + ". Demo trained on synthetic data — not for real lending decisions.)";
+  } catch (err) {
+    showProblem("Could not reach the API. Is the server running?");
+  } finally {
+    btn.disabled = false; btn.textContent = "Calculate risk";
+  }
+});
+
+fetch("/health").then(r => r.json().then(d => ({ok: r.ok, d}))).then(({ok, d}) => {
+  document.getElementById("dot").className = "dot " + (ok ? "ok" : "bad");
+  document.getElementById("status").textContent = ok ? "API online · model v" + d.model_version : "API up, model not loaded";
+}).catch(() => {
+  document.getElementById("dot").className = "dot bad";
+  document.getElementById("status").textContent = "API unreachable";
+});
+
+fillForm(PRESETS.typical);
+</script>
+</body>
+</html>

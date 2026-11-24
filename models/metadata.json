@@ -1,0 +1,103 @@
+{
+  "model_version": "1.0.0",
+  "trained_at": "2026-11-24T10:58:03+00:00",
+  "sklearn_version": "1.9.1",
+  "selected_model": "logistic_regression",
+  "best_params": {
+    "C": 0.01
+  },
+  "features": {
+    "numeric": [
+      "age",
+      "annual_income",
+      "employment_years",
+      "loan_amount",
+      "loan_term_months",
+      "interest_rate",
+      "credit_score",
+      "credit_history_years",
+      "num_credit_lines",
+      "delinquencies_2y",
+      "credit_utilization",
+      "debt_to_income"
+    ],
+    "categorical": [
+      "home_ownership",
+      "loan_purpose"
+    ]
+  },
+  "data": {
+    "source": "synthetic",
+    "rows": 15000,
+    "default_rate": 0.1318,
+    "fit_rows": 10200,
+    "calibration_rows": 1800,
+    "test_rows": 3000
+  },
+  "cross_validation": {
+    "folds": 5,
+    "results": [
+      {
+        "model": "logistic_regression",
+        "cv_roc_auc": 0.7668320042653323,
+        "cv_roc_auc_std": 0.017136048438072347,
+        "cv_recall_default": 0.6869888475836431,
+        "cv_pr_auc": 0.3779992245080693,
+        "seconds": 8.5
+      },
+      {
+        "model": "gradient_boosting",
+        "cv_roc_auc": 0.7591989067987128,
+        "cv_roc_auc_std": 0.014526901685963873,
+        "cv_recall_default": 0.6802973977695167,
+        "cv_pr_auc": 0.3555928080702185,
+        "seconds": 26.2
+      },
+      {
+        "model": "random_forest",
+        "cv_roc_auc": 0.7583269486291954,
+        "cv_roc_auc_std": 0.016550037325374096,
+        "cv_recall_default": 0.5828996282527881,
+        "cv_pr_auc": 0.3585169017592347,
+        "seconds": 23.0
+      }
+    ]
+  },
+  "test_metrics": {
+    "roc_auc": 0.7726796083481134,
+    "pr_auc": 0.36984591977278447,
+    "brier_calibrated": 0.09896567607883018,
+    "brier_uncalibrated": 0.1933561014087727,
+    "mean_predicted_probability": 0.13654668100850995,
+    "observed_default_rate": 0.13166666666666665,
+    "decision_threshold": 0.2,
+    "recall_default_at_threshold": 0.5392405063291139,
+    "precision_default_at_threshold": 0.33649289099526064,
+    "approval_rate_at_threshold": 0.789,
+    "bad_rate_among_approved": 0.07689057879171948,
+    "expected_cost_at_threshold": 0.44333333333333336,
+    "expected_cost_approve_everyone": 0.6583333333333332
+  },
+  "cost_assumptions": {
+    "false_negative": 5.0,
+    "false_positive": 1.0
+  },
+  "risk_bands": {
+    "low_cutoff": 0.1,
+    "high_cutoff": 0.2,
+    "test_summary": {
+      "low": {
+        "applicants": 1589,
+        "observed_default_rate": 0.04719949653870359
+      },
+      "medium": {
+        "applicants": 778,
+        "observed_default_rate": 0.13753213367609254
+      },
+      "high": {
+        "applicants": 633,
+        "observed_default_rate": 0.33649289099526064
+      }
+    }
+  }
+}
